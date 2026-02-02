@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Asguard05Gallery - The Ultimate Hybrid Edition">
+    <title>Asguard05Gallery | Ultimate Hybrid Edition</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+
+    <style>
+        /**
+         * ==========================================
+         * Asguard05Gallery - DESIGN TOKENS
+         * ==========================================
+         */
+        :root {
+            /* --- 1. PALETTE & THEME --- */
+            --g-accent: #0d6efd;
+            /* Main accent color (active borders, hover states) */
+            --g-bg-stage: #f8f9fa;
+            /* Background color under the main image */
+            --g-bg-modal: #0b0b0b;
+            /* Deep dark background for fullscreen modal */
+            --g-bg-modal-thumbs: rgba(20, 20, 20, 0.95);
+            /* Background for modal thumbnail strip */
+
+            /* --- 2. DIMENSIONS & LAYOUT --- */
+            --g-h-desktop: 600px;
+            /* Fixed gallery height on desktop */
+            --g-thumb-size: 80px;
+            /* Sidebar thumbnail size (square) */
+            --g-thumb-modal-size: 60px;
+            /* Modal thumbnail size */
+            --g-gap: 16px;
+            /* Gap between thumbnails and stage */
+            --g-radius: 12px;
+            /* Border radius for main container */
+            --g-radius-sm: 8px;
+            /* Border radius for thumbnails */
+
+            /* --- 3. CONTROLS & UI --- */
+            --g-btn-size: 44px;
+            /* Navigation button size */
+            --g-btn-bg: rgba(255, 255, 255, 0.9);
+            /* Nav button background opacity */
+            --g-btn-bg-hover: var(--g-accent);
+            /* Nav button hover background */
+            --g-btn-color: #333;
+            /* Nav icon color */
+            --g-btn-color-hover: #fff;
+            /* Nav icon hover color */
+            --g-expand-size: 36px;
+            /* Fullscreen trigger button size */
+
+            /* --- 4. ANIMATION --- */
+            --g-anim-speed: 0.3s;
+            /* Transition duration */
+            --g-anim-ease: ease;
+            /* Transition timing function */
+
+            /* --- 5. Z-INDEX LAYERS --- */
+            --g-z-video-btn: 2;
+            --g-z-controls: 10;
+            --g-z-modal-ui: 100;
+        }
+
+        /* ==========================================
+           ICONS CONFIGURATION (Google Fonts)
+           ========================================== */
+        .material-symbols-rounded {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+            line-height: 1;
+            /* Smooth transition for hover effects */
+            transition: font-variation-settings 0.2s ease, transform 0.2s ease;
+            user-select: none;
+        }
+
+        /* Helper for filled icons (stars, play buttons) */
+        .icon-filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        /* Hover effects for interactive elements */
+        .gallery-nav-btn:hover .material-symbols-rounded {
+            font-variation-settings: 'wght' 600;
+            /* Bolder on hover */
+        }
+
+        .gallery-nav-btn:active .material-symbols-rounded {
+            font-variation-settings: 'wght' 700, 'GRAD' 200;
+            /* Click effect */
+        }
+
+        .gallery-expand-btn:hover .material-symbols-rounded {
+            font-variation-settings: 'FILL' 1, 'wght' 500;
+            transform: scale(1.1);
+        }
+
+        /* ==========================================
+           CORE LAYOUT
+           ========================================== */
+
+        /* Main Wrapper */
+        .gallery-wrapper {
+            display: grid;
+            grid-template-columns: var(--g-thumb-size) 1fr;
+            gap: var(--g-gap);
+            height: var(--g-h-desktop);
+            user-select: none;
+            position: relative;
+        }
+
+        /* Thumbnails Column (Sidebar) */
+        .gallery-thumbs-col {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            padding-right: 4px;
+            scrollbar-width: thin;
+        }
+
+        /* Thumb Card Item */
+        .gallery-thumb-card {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1/1;
+            border-radius: var(--g-radius-sm);
+            border: 2px solid transparent;
+            overflow: hidden;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: all var(--g-anim-speed) var(--g-anim-ease);
+            flex-shrink: 0;
+            background-color: #eee;
+        }
+
+        .gallery-thumb-card:hover {
+            opacity: 0.8;
+        }
+
+        .gallery-thumb-card.active {
+            opacity: 1;
+            border-color: var(--g-accent);
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+        }
+
+        .gallery-thumb-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* ==========================================
+           MAIN STAGE AREA
+           ========================================== */
+        .gallery-stage {
+            position: relative;
+            background: var(--g-bg-stage);
+            border-radius: var(--g-radius);
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gallery-content-area {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            /* Critical for Zoom */
+        }
+
+        .gallery-main-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.1s linear;
+            /* Fast response for zoom */
+            will-change: transform;
+        }
+
+        /* ==========================================
+           VIDEO FACADE
+           ========================================== */
+        .gallery-video-facade {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            cursor: pointer;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gallery-play-btn {
+            position: absolute;
+            font-size: 4rem;
+            color: rgba(255, 255, 255, 0.9);
+            z-index: var(--g-z-video-btn);
+            transition: transform 0.2s;
+            /* Ensure Play icon is filled */
+            font-variation-settings: 'FILL' 1;
+        }
+
+        .gallery-video-facade:hover .gallery-play-btn {
+            transform: scale(1.1);
+            color: #fff;
+        }
+
+        /* ==========================================
+           NAVIGATION CONTROLS
+           ========================================== */
+        .gallery-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: var(--g-btn-size);
+            height: var(--g-btn-size);
+            border-radius: 50%;
+            border: none;
+            background: var(--g-btn-bg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            z-index: var(--g-z-controls);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--g-anim-speed) var(--g-anim-ease);
+            color: var(--g-btn-color);
+            cursor: pointer;
+        }
+
+        .gallery-nav-btn:hover {
+            background: var(--g-btn-bg-hover);
+            color: var(--g-btn-color-hover);
+        }
+
+        /* Icon sizing correction for nav buttons */
+        .gallery-nav-btn .material-symbols-rounded {
+            font-size: 24px;
+        }
+
+        .gallery-prev {
+            left: 16px;
+        }
+
+        .gallery-next {
+            right: 16px;
+        }
+
+        .gallery-expand-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.8);
+            border: none;
+            width: var(--g-expand-size);
+            height: var(--g-expand-size);
+            border-radius: 8px;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .gallery-expand-btn:hover {
+            background: #fff;
+        }
+
+        .gallery-expand-btn .material-symbols-rounded {
+            font-size: 20px;
+        }
+
+        /* ==========================================
+           IMMERSIVE MODAL
+           ========================================== */
+        .gallery-modal-content {
+            background-color: var(--g-bg-modal);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .gallery-modal-stage {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .gallery-modal-thumbs {
+            height: 100px;
+            background: var(--g-bg-modal-thumbs);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 20px;
+            overflow-x: auto;
+        }
+
+        .gallery-modal-thumb-item {
+            width: var(--g-thumb-modal-size);
+            height: var(--g-thumb-modal-size);
+            border-radius: 6px;
+            border: 2px solid transparent;
+            opacity: 0.5;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .gallery-modal-thumb-item.active {
+            opacity: 1;
+            border-color: var(--g-accent);
+        }
+
+        .gallery-modal-thumb-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        .gallery-dark-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gallery-dark-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            color: #fff;
+        }
+
+        /* ==========================================
+           RESPONSIVE (MOBILE FIRST ADAPTATION)
+           ========================================== */
+        @media (max-width: 991px) {
+            .gallery-wrapper {
+                display: flex;
+                flex-direction: column;
+                height: auto;
+            }
+
+            .gallery-stage {
+                order: 1;
+                width: 100%;
+                aspect-ratio: 1/1;
+            }
+
+            .gallery-thumbs-col {
+                order: 2;
+                flex-direction: row;
+                height: auto;
+                width: 100%;
+                overflow-x: auto;
+                padding-bottom: 4px;
+            }
+
+            .gallery-thumb-card {
+                width: 70px;
+                height: 70px;
+            }
+
+            .gallery-stage .gallery-nav-btn {
+                display: none;
+            }
+
+            .gallery-modal-thumbs {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+
+</head>
+
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-5 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="#">
+                <span class="material-symbols-rounded me-2 icon-filled text-success">rocket_launch</span>
+                Asguard05Gallery <span class="badge bg-primary ms-2">v5.0 Ultimate</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row g-5">
+            <div class="col-lg-7">
+                <!--gallery container -->
+                <div id="product-gallery" class="gallery-wrapper shadow-sm rounded bg-white p-2">
+
+                    <img seodata="seodata" src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1600"
+                        alt="Sony Alpha Camera Body">
+
+                    <img seodata="seodata" src="https://images.unsplash.com/photo-1517260739337-6799d239ce83?w=1600"
+                        data-thumb="https://images.unsplash.com/photo-1517260739337-6799d239ce83?w=200"
+                        alt="Lens Closeup">
+
+                    <img seodata="seodata" src="http://picsum.photos/1600?random1" alt="Lens Closeup">
+
+                    <img seodata="seodata" src="http://picsum.photos/1600?random2" alt="Lens Closeup">
+
+
+                    <iframe src="https://www.youtube.com/watch?v=M7FIvfx5J10"></iframe>
+
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="ps-lg-3">
+                    <h6 class="text-uppercase text-muted fw-bold ls-1">Professional Camera</h6>
+                    <h1 class="fw-bold mb-3">Sony Alpha A7 V (Hybrid)</h1>
+
+                    <div class="mb-3 d-flex align-items-center">
+                        <span class="material-symbols-rounded text-warning icon-filled">star</span>
+                        <span class="material-symbols-rounded text-warning icon-filled">star</span>
+                        <span class="material-symbols-rounded text-warning icon-filled">star</span>
+                        <span class="material-symbols-rounded text-warning icon-filled">star</span>
+                        <span class="material-symbols-rounded text-warning icon-filled">star_half</span>
+                        <span class="ms-2 text-muted">(5.0/5.0)</span>
+                    </div>
+
+                    <h2 class="mb-4">$2,499.00</h2>
+
+                    <div class="card bg-white border-0 shadow-sm mb-4">
+                        <div class="card-header bg-transparent fw-bold border-0 pt-3 d-flex align-items-center">
+                            <span class="material-symbols-rounded me-2">terminal</span>
+                            System Status
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush small">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Debug Mode</span>
+                                    <span class="badge bg-secondary rounded-pill" id="status-debug">Disabled</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Hybrid Engine (DOM + JS)</span>
+                                    <span class="badge bg-success rounded-pill">Active</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>ARIA Focus Fix</span>
+                                    <span class="badge bg-success rounded-pill">Applied</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <button
+                        class="btn btn-dark btn-lg w-100 rounded-pill shadow-lg d-flex align-items-center justify-content-center">
+                        <span class="material-symbols-rounded me-2">add_shopping_cart</span>
+                        Add to Cart
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        /**
+         * ====================================================================
+         * Asguard05Gallery Class
+         * ====================================================================
+         */
+        class Asguard05Gallery {
+            /**
+             * @param {string} selector - CSS selector
+             * @param {Array} data - JS Data Array
+             * @param {Object} options - Config overrides
+             */
+            constructor(selector, data, options = {}) {
+                //  Configuration (Merged with Defaults)
+                this.config = {
+                    debugMode: false,        // Enables internal logger & UI updates
+                    mainZoom: true,          // Enable zoom on main page
+                    mainZoomLevel: 1.5,      // Main page specific zoom 
+                    modal: true,             // Enable immersive modal
+                    modalZoom: false,         // Disable zoom in modal
+                    modalZoomLevel: 3.0,     // Modal specific zoom 
+                    loop: true,              // Infinite sliding
+                    autoplay: false,         // Control video autoplay
+                    ...options
+                };
+
+                // State Management
+                this.state = {
+                    index: 0,
+                    isModalOpen: false,
+                    touchStart: 0,
+                    touchEnd: 0
+                };
+
+                // References Cache
+                this.refs = {
+                    bsModal: null,
+                    modalEl: null,
+                };
+
+                // Root Validation
+                this.root = document.querySelector(selector);
+                if (!this.root) {
+                    if (this.config.debugMode)
+                        console.error(`[Asguard05Gallery] ❌ Root selector "${selector}" not found.`);
+                    return;
+                }
+
+                this._log("Constructor initialized. Starting Hybrid Engine...", "info");
+
+                // Parse static HTML content inside the container
+                const staticItems = this._parseStaticContent();
+
+                // Validate incoming JS data
+                const dynamicItems = (data || []).map(item => this._validateMediaItem(item)).filter(Boolean);
+
+                // Merge
+                this.items = [...staticItems, ...dynamicItems];
+
+                if (this.items.length === 0) {
+                    this._log("Warning: No valid media found in HTML or JS.", "warn");
+                } else {
+                    this._log(`Data Loaded: ${staticItems.length} from DOM, ${dynamicItems.length} from JS. Total: ${this.items.length}`, "info");
+                }
+
+                // 5. Lifecycle Start
+                this._init();
+            }
+
+            // ==========================================
+            // LOGGING
+            // ==========================================
+            _log(message, level = 'log') {
+                if (!this.config.debugMode) return;
+                const prefix = `%c[Asguard05Gallery]`;
+                const style = "font-weight: bold; color: #0d6efd;";
+
+                if (level === 'error') console.error(`${prefix} ❌ ${message}`, style);
+                else if (level === 'warn') console.warn(`${prefix} ⚠️ ${message}`, style);
+                else console.log(`${prefix} ℹ️ ${message}`, style);
+            }
+
+            _updateStatusUI() {
+                const setBadge = (id, isActive) => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.textContent = isActive ? 'Enabled' : 'Disabled';
+                        el.className = isActive ? (id === 'status-debug' ? 'badge bg-danger' : 'badge bg-success') : 'badge bg-secondary';
+                    }
+                };
+                setBadge('status-debug', this.config.debugMode);
+            }
+
+            // ==========================================
+            // DATA PARSING 
+            // ==========================================
+            _validateMediaItem(item) {
+                if (!item || typeof item !== 'object') return null;
+
+                let src = item.src || item.url;
+                if (!src || typeof src !== 'string' || !src.trim()) return null;
+
+                let type = item.type === 'video' ? 'video' : 'image';
+
+                // Smart Detection
+                if (src.includes('youtube.com') || src.includes('youtu.be')) {
+                    type = 'video';
+                    if (src.includes('watch?v=')) {
+                        src = src.replace('watch?v=', 'embed/');
+                    } else if (src.includes('youtu.be/')) {
+                        src = src.replace('youtu.be/', 'youtube.com/embed/');
+                    }
+                    if (src.includes('&')) src = src.split('&')[0];
+                }
+
+                let thumb = item.thumb || item.thumbnail;
+                if (!thumb) {
+                    if (type === 'video' && src.includes('youtube.com/embed/')) {
+                        const parts = src.split('/');
+                        const videoId = parts[parts.length - 1].split('?')[0];
+                        thumb = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                    } else {
+                        thumb = src;
+                    }
+                }
+
+                return { type, src, thumb };
+            }
+
+            _parseStaticContent() {
+                if (!this.root) return [];
+                const elements = this.root.querySelectorAll('img, iframe, video');
+                const parsed = [];
+
+                elements.forEach(el => {
+                    const src = el.getAttribute('src') || el.getAttribute('data-src');
+                    if (!src) return;
+
+                    let type = 'image';
+                    if (el.tagName === 'IFRAME' || el.tagName === 'VIDEO' || src.includes('youtube')) {
+                        type = 'video';
+                    }
+                    const item = this._validateMediaItem({ type, src });
+                    if (item) parsed.push(item);
+                });
+                return parsed;
+            }
+
+            // ==========================================
+            // LIFECYCLE
+            // ==========================================
+            _init() {
+                try {
+                    // Clear static content before rendering
+                    this.root.innerHTML = '';
+
+                    this._renderMainLayout();
+
+                    if (this.config.modal) {
+                        this._injectModalComponent();
+                    }
+
+                    this._bindEvents();
+                    this.updateView();
+                    this._updateStatusUI(); // Restored UI update
+
+                    this._log("Initialization complete.", "info");
+                } catch (error) {
+                    this._log(`Exception during init: ${error.message}`, "error");
+                }
+            }
+
+            // ==========================================
+            // RENDER LOGIC (Restored v3.2 Layout)
+            // ==========================================
+            _renderMainLayout() {
+                this.root.innerHTML = `
+                    <div class="gallery-thumbs-col" id="gallery-main-thumbs" role="tablist">
+                        ${this._generateThumbsHTML('main')}
+                    </div>
+                    
+                    <div class="gallery-stage" id="gallery-main-stage">
+                        <div class="gallery-content-area" id="gallery-main-content">
+                        </div>
+
+                        <button class="gallery-nav-btn gallery-prev" data-dir="-1" aria-label="Previous">
+                            <span class="material-symbols-rounded">chevron_left</span>
+                        </button>
+                        <button class="gallery-nav-btn gallery-next" data-dir="1" aria-label="Next">
+                            <span class="material-symbols-rounded">chevron_right</span>
+                        </button>
+                        
+                        ${this.config.modal ?
+                        `<button class="gallery-expand-btn" id="gallery-btn-expand" aria-label="Fullscreen">
+                                <span class="material-symbols-rounded">fullscreen</span>
+                           </button>` : ''}
+                    </div>
+                `;
+            }
+
+            _injectModalComponent() {
+                const modalId = 'gallery-immersive-modal';
+                if (!document.getElementById(modalId)) {
+                    // Restored Close Button Styling & Logic from v3.2
+                    const modalHTML = `
+                        <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-fullscreen">
+                                <div class="modal-content border-0">
+                                    <div class="gallery-modal-content">
+                                        <div class="d-flex justify-content-end p-3 position-absolute w-100" style="z-index: var(--g-z-modal-ui);">
+                                            <button type="button" class="btn btn-dark rounded-circle p-2 d-flex align-items-center justify-content-center" data-bs-dismiss="modal" aria-label="Close" style="width: 44px; height: 44px;">
+                                                <span class="material-symbols-rounded fs-4">close</span>
+                                            </button>
+                                        </div>
+
+                                        <div class="gallery-modal-stage" id="gallery-modal-stage">
+                                            <div class="gallery-content-area" id="gallery-modal-content"></div>
+                                            <button class="gallery-nav-btn gallery-dark-btn gallery-prev" data-dir="-1"><span class="material-symbols-rounded">chevron_left</span></button>
+                                            <button class="gallery-nav-btn gallery-dark-btn gallery-next" data-dir="1"><span class="material-symbols-rounded">chevron_right</span></button>
+                                        </div>
+
+                                        <div class="gallery-modal-thumbs" id="gallery-modal-thumbs">
+                                            ${this._generateThumbsHTML('modal')}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.body.insertAdjacentHTML('beforeend', modalHTML);
+                }
+
+                const modalEl = document.getElementById(modalId);
+                if (modalEl) {
+                    this.refs.modalEl = modalEl;
+                    this.refs.bsModal = new bootstrap.Modal(modalEl, { keyboard: true });
+
+                    modalEl.addEventListener('hide.bs.modal', () => {
+                        if (document.activeElement instanceof HTMLElement) {
+                            document.activeElement.blur();
+                        }
+                    });
+
+                    modalEl.addEventListener('hidden.bs.modal', () => {
+                        this._log("Modal hidden. Restoring focus.");
+                        const expandBtn = this.root.querySelector('#gallery-btn-expand');
+                        if (expandBtn) expandBtn.focus();
+                    });
+                }
+            }
+
+            _generateThumbsHTML(scope) {
+                const isMain = scope === 'main';
+                const baseClass = isMain ? 'gallery-thumb-card' : 'gallery-modal-thumb-item';
+
+                return this.items.map((item, i) => `
+                    <div class="${baseClass}" data-index="${i}" data-scope="${scope}" role="tab" tabindex="0">
+                        <img src="${item.thumb}" loading="lazy" alt="Thumbnail ${i + 1}">
+                        ${item.type === 'video' ?
+                        '<div class="badge bg-danger position-absolute bottom-0 start-0 m-1 d-flex align-items-center justify-content-center p-1"><span class="material-symbols-rounded" style="font-size: 16px; font-variation-settings: \'FILL\' 1;">play_arrow</span></div>'
+                        : ''}
+                    </div>
+                `).join('');
+            }
+
+            // ==========================================
+            // EVENT BINDING
+            // ==========================================
+            _bindEvents() {
+                const handleNavClick = (e) => {
+                    const btn = e.target.closest('[data-dir]');
+                    if (btn) {
+                        e.stopPropagation();
+                        this.changeSlide(parseInt(btn.dataset.dir));
+                        return;
+                    }
+                    const thumb = e.target.closest('[data-index]');
+                    if (thumb) {
+                        this.state.index = parseInt(thumb.dataset.index);
+                        this.updateView();
+                    }
+                };
+
+                if (this.root) this.root.addEventListener('click', handleNavClick);
+                if (this.refs.modalEl) this.refs.modalEl.addEventListener('click', handleNavClick);
+
+                if (this.config.modal) {
+                    const expandBtn = this.root.querySelector('#gallery-btn-expand');
+                    if (expandBtn) expandBtn.onclick = () => this.refs.bsModal?.show();
+
+                    const contentArea = this.root.querySelector('#gallery-main-content');
+                    if (contentArea) {
+                        contentArea.onclick = () => {
+                            if (this.items[this.state.index].type === 'image') {
+                                this.refs.bsModal?.show();
+                            }
+                        };
+                    }
+                }
+
+                // Keyboard
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowLeft') this.changeSlide(-1);
+                    if (e.key === 'ArrowRight') this.changeSlide(1);
+                });
+
+                // Swipe Gestures
+                const mainStage = this.root.querySelector('#gallery-main-stage');
+                if (mainStage) this._bindSwipe(mainStage);
+                if (this.refs.modalEl) {
+                    const modalStage = this.refs.modalEl.querySelector('#gallery-modal-stage');
+                    if (modalStage) this._bindSwipe(modalStage);
+                }
+
+                // Detailed Zoom Binding
+                if (this.config.mainZoom && mainStage) {
+                    this._bindZoom(mainStage, '#gallery-main-content', this.config.mainZoomLevel);
+                }
+
+                if (this.config.modal && this.config.modalZoom && this.refs.modalEl) {
+                    const modalStage = this.refs.modalEl.querySelector('#gallery-modal-stage');
+                    if (modalStage) {
+                        this._bindZoom(modalStage, '#gallery-modal-content', this.config.modalZoomLevel);
+                    }
+                }
+            }
+
+            _bindSwipe(element) {
+                if (!element) return;
+                element.addEventListener('touchstart', e => this.state.touchStart = e.changedTouches[0].screenX, { passive: true });
+                element.addEventListener('touchend', e => {
+                    this.state.touchEnd = e.changedTouches[0].screenX;
+                    const diff = this.state.touchStart - this.state.touchEnd;
+                    if (Math.abs(diff) > 50) this.changeSlide(diff > 0 ? 1 : -1);
+                }, { passive: true });
+            }
+
+            _bindZoom(stage, contentSel, level) {
+                const content = stage?.querySelector(contentSel);
+                if (!stage || !content) return;
+
+                stage.addEventListener('mousemove', (e) => {
+                    const img = content.querySelector('.gallery-main-img');
+                    if (!img) return;
+
+                    const rect = stage.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width) * 100;
+                    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+                    img.style.transformOrigin = `${x}% ${y}%`;
+                    img.style.transform = `scale(${level})`;
+                });
+
+                stage.addEventListener('mouseleave', () => {
+                    const img = content.querySelector('.gallery-main-img');
+                    if (img) {
+                        img.style.transform = 'scale(1)';
+                        setTimeout(() => { img.style.transformOrigin = 'center center'; }, 100);
+                    }
+                });
+            }
+
+            // ==========================================
+            // CORE LOGIC
+            // ==========================================
+            changeSlide(dir) {
+                let newIndex = this.state.index + dir;
+                if (this.config.loop) {
+                    if (newIndex < 0) newIndex = this.items.length - 1;
+                    if (newIndex >= this.items.length) newIndex = 0;
+                } else {
+                    if (newIndex < 0 || newIndex >= this.items.length) return;
+                }
+                this.state.index = newIndex;
+                this.updateView();
+            }
+
+            updateView() {
+                const item = this.items[this.state.index];
+                if (!item) return;
+
+                this._log(`Updating View: Index ${this.state.index} (${item.type})`);
+
+                const renderContent = (containerId, isModal) => {
+                    const container = document.getElementById(containerId);
+                    if (!container) return;
+                    container.innerHTML = '';
+
+                    if (item.type === 'video') {
+                        const facade = document.createElement('div');
+                        facade.className = 'gallery-video-facade';
+                        facade.innerHTML = `
+                            <img src="${item.thumb}" class="w-100 h-100 object-fit-cover" style="opacity:0.6;" alt="Video Preview">
+                            <span class="material-symbols-rounded gallery-play-btn">play_circle</span>
+                        `;
+                        facade.onclick = (e) => {
+                            e.stopPropagation();
+                            this._log("Video play triggered");
+
+                            // Respecting the AUTOPLAY config from v3.2
+                            const autoplayParam = this.config.autoplay ? 'autoplay=1' : 'autoplay=0';
+                            const srcWithParams = item.src.includes('?') ? `${item.src}&${autoplayParam}` : `${item.src}?${autoplayParam}`;
+
+                            container.innerHTML = `
+                                <div class="ratio ratio-16x9 w-100" style="height: 100%">
+                                    <iframe src="${srcWithParams}" allow="autoplay; fullscreen" style="border:0"></iframe>
+                                </div>`;
+                        };
+                        container.appendChild(facade);
+                        container.parentElement.style.cursor = 'default';
+
+                    } else {
+                        // Image Handling with Zoom Config
+                        const img = document.createElement('img');
+                        img.src = item.src;
+                        img.className = 'gallery-main-img';
+                        container.appendChild(img);
+
+                        const isZoomEnabled = isModal ? this.config.modalZoom : this.config.mainZoom;
+                        let cursorType = 'default';
+                        if (isZoomEnabled) cursorType = 'zoom-in';
+                        else if (!isModal && this.config.modal) cursorType = 'pointer';
+
+                        container.parentElement.style.cursor = cursorType;
+                    }
+                };
+
+                renderContent('gallery-main-content', false);
+                renderContent('gallery-modal-content', true);
+
+                const highlightActive = (selector) => {
+                    document.querySelectorAll(selector).forEach(t => {
+                        const isActive = parseInt(t.dataset.index) === this.state.index;
+                        t.classList.toggle('active', isActive);
+                        if (isActive) {
+                            t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                        }
+                    });
+                };
+                highlightActive('.gallery-thumb-card');
+                highlightActive('.gallery-modal-thumb-item');
+            }
+        }
+
+        /**
+         * ==========================================
+         * INITIALIZATION & MOCK DATA
+         * ==========================================
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+
+
+
+            /* 
+            mediaData[] bad for prodution , this way not good for SEO
+            in production use html inside the container
+
+            <div id="product-gallery" class="gallery-wrapper shadow-sm rounded bg-white p-2">
+                <img seodata="seodata" src="https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1600" alt="Sony Alpha Camera Body">
+                <img seodata="seodata" src="https://images.unsplash.com/photo-1517260739337-6799d239ce83?w=1600" data-thumb="https://images.unsplash.com/photo-1517260739337-6799d239ce83?w=200" alt="Lens Closeup">
+            </div> 
+
+            */
+
+            const mediaData = [
+                {
+                    type: 'image',
+                    thumb: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=200',
+                    src: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1600'
+                },
+                // Smart YouTube handling: You can just use a watch URL now!
+                {
+                    type: 'video',
+                    src: 'https://www.youtube.com/watch?v=M7FIvfx5J10' // No thumb needed, script fetches it
+                },
+                {
+                    type: 'image',
+                    thumb: 'https://images.unsplash.com/photo-1517260739337-6799d239ce83?w=200',
+                    src: 'https://images.unsplash.com/photo-1517260739337-6799d239ce83?w=1600'
+                }
+            ];
+
+            // Initialize Ultimate Version
+            new Asguard05Gallery('#product-gallery', /*mediaData[]*/ false, {
+                /* config[] */
+                debugMode: true,        // Option: console logging and UI status updates / silent mode
+                mainZoom: true,         // Option: zoom-on-hover for main gallery / static image
+                mainZoomLevel: 1.2,     // Zoom scale: value 1.5 yields 150% magnification
+                modal: true,            // Option: full-screen immersive window / no modal interaction
+                modalZoom: false,        // Option: magnification inside modal / fixed modal view
+                modalZoomLevel: 3.0,    // Zoom scale: value 3.0 yields 300% magnification
+                loop: true,             // Option: infinite navigation loop / stops at gallery ends
+                autoplay: true,         // Option: automatic video playback / manual start only
+            });
+        });
+
+    </script>
+</body>
+
+</html>
